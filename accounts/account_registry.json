@@ -1,0 +1,30 @@
+{
+  "accounts": [
+    {
+      "account_id": "ACC001",
+      "name": "主帳戶（Paper Trading）",
+      "api_key_env": "ALPACA_KEY_ACC001",
+      "api_secret_env": "ALPACA_SECRET_ACC001",
+      "base_url": "https://paper-api.alpaca.markets/v2",
+      "data_url": "https://data.alpaca.markets/v2",
+      "active_strategy": "nasdaq_top10",
+      "email": "user@example.com",
+      "timezone": "America/New_York",
+      "enabled": true,
+      "created_at": "2026-05-24"
+    },
+    {
+      "account_id": "ACC002",
+      "name": "備用帳戶（停用中）",
+      "api_key_env": "ALPACA_KEY_ACC002",
+      "api_secret_env": "ALPACA_SECRET_ACC002",
+      "base_url": "https://paper-api.alpaca.markets/v2",
+      "data_url": "https://data.alpaca.markets/v2",
+      "active_strategy": null,
+      "email": "backup@example.com",
+      "timezone": "America/New_York",
+      "enabled": false,
+      "created_at": "2026-05-24"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "app": {
+    "name": "Alpaca Auto Trader",
+    "version": "1.0.0",
+    "timezone": "America/New_York"
+  },
+  "api": {
+    "timeout_seconds": 15,
+    "max_retries": 3,
+    "retry_backoff_seconds": 2,
+    "data_feed": "iex"
+  },
+  "email": {
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 587,
+    "sender_env": "EMAIL_SENDER",
+    "password_env": "EMAIL_PASSWORD",
+    "send_time_est": "06:00"
+  },
+  "market": {
+    "benchmark_symbols": ["QQQ", "SPY"],
+    "trading_days_per_year": 252,
+    "market_open_est": "09:30",
+    "market_close_est": "16:00"
+  },
+  "dashboard": {
+    "port": 8501,
+    "auto_refresh_seconds": 60
+  },
+  "notifications": {
+    "on_trade_executed": true,
+    "on_rebalance": true,
+    "on_daily_report": true
+  }
+}

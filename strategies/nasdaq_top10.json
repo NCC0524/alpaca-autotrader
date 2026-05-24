@@ -1,0 +1,33 @@
+{
+  "strategy_id": "nasdaq_top10",
+  "strategy_name": "Nasdaq 市值前十等權重策略",
+  "version": "1.0.0",
+  "description": "每日追蹤 Nasdaq 市值前 10 大股票，各投入 10%，只買整數股",
+  "universe": {
+    "source": "static",
+    "symbols": ["AAPL","NVDA","MSFT","AMZN","AVGO","META","TSLA","GOOGL","GOOG","COST"],
+    "top_n": 10
+  },
+  "allocation": {
+    "method": "equal_weight",
+    "per_stock_pct": 10,
+    "integer_shares_only": true,
+    "cash_buffer_pct": 0
+  },
+  "rebalance": {
+    "monthly_on_first_trading_day": true,
+    "on_new_funds": true,
+    "drift_threshold_pct": 5
+  },
+  "risk": {
+    "max_single_position_pct": 15,
+    "stop_loss_pct": null,
+    "take_profit_pct": null
+  },
+  "execution": {
+    "order_type": "market",
+    "time_in_force": "day",
+    "sell_before_buy": true,
+    "delay_between_orders_ms": 300
+  }
+}
