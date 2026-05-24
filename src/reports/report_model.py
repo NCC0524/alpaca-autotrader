@@ -17,7 +17,7 @@ class ReportModel:
     不負責：顯示、Email、HTML 渲染（那是 View 的事）
     """
 
-    def __init__(self, client: AlpacaClient, reports_dir: str = "reports/model"):
+    def __init__(self, client: AlpacaClient = None, reports_dir: str = "reports/model"):
         self.client      = client
         self.reports_dir = reports_dir
 
