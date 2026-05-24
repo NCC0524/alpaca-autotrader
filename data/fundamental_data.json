@@ -1,0 +1,62 @@
+{
+  "AAPL": {
+    "eps_ttm": 6.75,
+    "shares_outstanding_M": 15448,
+    "sector": "Technology",
+    "name": "Apple Inc."
+  },
+  "MSFT": {
+    "eps_ttm": 12.05,
+    "shares_outstanding_M": 7431,
+    "sector": "Technology",
+    "name": "Microsoft Corp."
+  },
+  "NVDA": {
+    "eps_ttm": 1.92,
+    "shares_outstanding_M": 24430,
+    "sector": "Semiconductors",
+    "name": "NVIDIA Corp."
+  },
+  "AMZN": {
+    "eps_ttm": 5.53,
+    "shares_outstanding_M": 10560,
+    "sector": "Consumer Discretionary",
+    "name": "Amazon.com Inc."
+  },
+  "GOOGL": {
+    "eps_ttm": 7.49,
+    "shares_outstanding_M": 12180,
+    "sector": "Communication Services",
+    "name": "Alphabet Inc."
+  },
+  "META": {
+    "eps_ttm": 23.86,
+    "shares_outstanding_M": 2530,
+    "sector": "Communication Services",
+    "name": "Meta Platforms Inc."
+  },
+  "TSLA": {
+    "eps_ttm": 2.04,
+    "shares_outstanding_M": 3200,
+    "sector": "Consumer Discretionary",
+    "name": "Tesla Inc."
+  },
+  "TSM": {
+    "eps_ttm": 8.32,
+    "shares_outstanding_M": 5180,
+    "sector": "Semiconductors",
+    "name": "Taiwan Semiconductor"
+  },
+  "AVGO": {
+    "eps_ttm": 4.96,
+    "shares_outstanding_M": 4690,
+    "sector": "Semiconductors",
+    "name": "Broadcom Inc."
+  },
+  "AMD": {
+    "eps_ttm": 1.08,
+    "shares_outstanding_M": 1620,
+    "sector": "Semiconductors",
+    "name": "Advanced Micro Devices"
+  }
+}

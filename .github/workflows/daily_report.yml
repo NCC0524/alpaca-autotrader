@@ -1,0 +1,44 @@
+name: Daily Report & Email
+
+on:
+  schedule:
+    - cron: '0 11 * * 1-5'    # UTC 11:00 = EST 06:00 (僅工作日)
+  workflow_dispatch:
+
+jobs:
+  generate-reports:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write            # 允許提交報告 JSON 回 repo
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate reports for all accounts
+        env:
+          ALPACA_KEY_ACC001:    ${{ secrets.ALPACA_KEY_ACC001 }}
+          ALPACA_SECRET_ACC001: ${{ secrets.ALPACA_SECRET_ACC001 }}
+          ALPACA_KEY_ACC002:    ${{ secrets.ALPACA_KEY_ACC002 }}
+          ALPACA_SECRET_ACC002: ${{ secrets.ALPACA_SECRET_ACC002 }}
+          EMAIL_SENDER:         ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD:       ${{ secrets.EMAIL_PASSWORD }}
+        run: python -m src.runner.daily_reporter
+
+      - name: Commit report JSONs to repository
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/
+          git diff --staged --quiet || \
+            git commit -m "chore: daily report $(date -u +%Y-%m-%d) [skip ci]"
+          git push

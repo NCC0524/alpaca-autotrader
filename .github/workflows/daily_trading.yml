@@ -1,0 +1,39 @@
+name: Daily Auto Trading
+
+on:
+  schedule:
+    - cron: '31 13 * * 1-5'   # UTC 13:31 = EST 09:31 (盤中開盤後 1 分鐘，僅工作日)
+  workflow_dispatch:            # 允許手動觸發測試
+
+jobs:
+  trade-all-accounts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Execute trading for all accounts
+        env:
+          ALPACA_KEY_ACC001:    ${{ secrets.ALPACA_KEY_ACC001 }}
+          ALPACA_SECRET_ACC001: ${{ secrets.ALPACA_SECRET_ACC001 }}
+          ALPACA_KEY_ACC002:    ${{ secrets.ALPACA_KEY_ACC002 }}
+          ALPACA_SECRET_ACC002: ${{ secrets.ALPACA_SECRET_ACC002 }}
+        run: python -m src.runner.daily_trader
+
+      - name: Upload execution logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trading-log-${{ github.run_id }}
+          path: logs/
+          retention-days: 30
