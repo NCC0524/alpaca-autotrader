@@ -40,7 +40,7 @@ def render_positions(provider: DashboardDataProvider, account_id: str) -> None:
             return f"color: {color}; font-weight: bold"
         return ""
 
-    styled = df.style.applymap(color_pnl, subset=["損益 %", "損益金額"]) \
+    styled = df.style.map(color_pnl, subset=["損益 %", "損益金額"]) \
                      .format({
                          "現價":    "${:,.2f}",
                          "均價":    "${:,.2f}",
