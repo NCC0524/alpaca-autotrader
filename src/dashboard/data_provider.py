@@ -95,13 +95,19 @@ class DashboardDataProvider:
             if inception_nav and days_elapsed > 0 else 0.0
         )
 
-        # 週 / 月 / 最大回撤：從最新可用歷史報告計算
+        # 週 / 月 / 最大回撤：優先歷史報告，其次 Alpaca portfolio/history API
         nav_history: list = []
         available_dates = self.report_model.list_dates(account_id)
         if available_dates:
             latest = self.report_model.load(account_id, available_dates[0])
             if latest:
                 nav_history = latest.get("nav_history", [])
+
+        if not nav_history:
+            try:
+                nav_history = client.get_portfolio_history(period="1M", timeframe="1D")
+            except Exception:
+                nav_history = []
 
         weekly_pnl_pct  = ReportModel._period_return(nav_history, nav, days=7)
         monthly_pnl_pct = ReportModel._period_return(nav_history, nav, days=30)
@@ -134,17 +140,35 @@ class DashboardDataProvider:
     # ── NAV 歷史 ─────────────────────────────────────────────────────────────
     def get_nav_history(self, account_id: str) -> List[dict]:
         """
-        取得 NAV 歷史。
-        來源：最新 JSON 報告的 nav_history 欄位（由 GitHub Actions 每日提交）。
-        fallback：僅含今日一筆。
+        取得 NAV 歷史（多資料點，供走勢圖與回撤圖使用）。
+
+        優先順序：
+        1. 當日 JSON 報告的 nav_history（GitHub Actions 每日提交）
+        2. Alpaca portfolio/history API（最近 1 個月日線）
+        3. fallback：僅含今日一筆
         """
         today  = datetime.date.today().isoformat()
         report = self.report_model.load(account_id, today)
         if report and report.get("nav_history"):
             return report["nav_history"]
+
+        # ── fallback：直接從 Alpaca API 取歷史 NAV ─────────────────────────
         client = self.account_manager.get_client(account_id)
-        nav    = client.get_portfolio_value()
-        return [{"date": today, "nav": nav}]
+        try:
+            history = client.get_portfolio_history(period="1M", timeframe="1D")
+            if history:
+                # 補上今日最新 NAV（API 可能不含當日未收盤資料）
+                nav_today = client.get_portfolio_value()
+                if history[-1]["date"] != today:
+                    history.append({"date": today, "nav": round(nav_today, 2)})
+                else:
+                    history[-1]["nav"] = round(nav_today, 2)
+                return history
+        except Exception:
+            pass  # API 失敗時 fallback 到單一資料點
+
+        nav = client.get_portfolio_value()
+        return [{"date": today, "nav": round(nav, 2)}]
 
     # ── Benchmark 序列 ───────────────────────────────────────────────────────
     def get_benchmark_series(

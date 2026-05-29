@@ -240,5 +240,38 @@ class AlpacaClient:
             base=self.data_url
         )
 
+    def get_portfolio_history(
+        self,
+        period: str = "1M",
+        timeframe: str = "1D",
+    ) -> list:
+        """
+        取得帳戶 NAV 歷史序列（來自 Alpaca portfolio/history API）。
+        回傳：[{"date": "YYYY-MM-DD", "nav": float}, ...]，按日期排序，排除 nav=0 的資料點。
+
+        參數：
+            period    : "1W" / "1M" / "3M" / "6M" / "1A" / "all"
+            timeframe : "1D"（每日）/ "1H"（每小時）
+        """
+        import datetime as _dt
+        ep = f"/account/portfolio/history?period={period}&timeframe={timeframe}"
+        raw = self.get(ep)
+
+        timestamps = raw.get("timestamp") or []
+        equities   = raw.get("equity") or []
+
+        result = []
+        for ts, eq in zip(timestamps, equities):
+            if not eq:          # 排除 0 / None（市場未開盤日）
+                continue
+            date_str = _dt.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+            result.append({"date": date_str, "nav": round(float(eq), 2)})
+
+        # 去除重複日期（同一天可能有多筆），保留最後一筆
+        seen: dict = {}
+        for entry in result:
+            seen[entry["date"]] = entry
+        return sorted(seen.values(), key=lambda x: x["date"])
+
     def __repr__(self):
         return f"AlpacaClient(base={self.base_url}, key=***{self.api_key[-4:]})"
