@@ -226,12 +226,106 @@ class DashboardDataProvider:
 
     # ── 歷史報告 ─────────────────────────────────────────────────────────────
     def get_available_dates(self, account_id: str) -> List[str]:
-        """列出有歷史報告的所有日期（由新到舊）"""
-        return self.report_model.list_dates(account_id)
+        """
+        列出有歷史報告的所有日期（由新到舊）。
+        今日永遠包含在清單內（即使 GitHub Actions 尚未生成報告）。
+        """
+        today = datetime.date.today().isoformat()
+        stored = self.report_model.list_dates(account_id)
+        if today not in stored:
+            return [today] + stored
+        return stored
 
     def load_history_report(self, account_id: str, date: str) -> Optional[dict]:
-        """載入指定日期的歷史報告，找不到回傳 None"""
-        return self.report_model.load(account_id, date)
+        """
+        載入指定日期的歷史報告。
+        若該日期為今日且尚無 JSON 檔，自動從 Alpaca API 即時生成報告快照。
+        """
+        saved = self.report_model.load(account_id, date)
+        if saved:
+            return saved
+
+        today = datetime.date.today().isoformat()
+        if date != today:
+            return None
+
+        # ── 即時生成今日快照（無需 GitHub Actions）───────────────────────
+        return self._build_live_report(account_id)
+
+    def _build_live_report(self, account_id: str) -> dict:
+        """
+        從 Alpaca API 即時組合今日報告 dict（格式與 GitHub Actions 生成的報告相同）。
+        用於歷史報告頁在無 JSON 檔時仍能顯示今日數據。
+        """
+        from src.reports.report_model import ReportModel
+
+        today  = datetime.date.today().isoformat()
+        client = self.account_manager.get_client(account_id)
+        acc_cfg = self.account_manager.get_account_config(account_id)
+
+        account     = client.get_account()
+        nav         = float(account.get("portfolio_value", 0))
+        cash        = float(account.get("cash", 0))
+        last_equity = float(account.get("last_equity") or nav)
+
+        # NAV 歷史
+        try:
+            nav_history = client.get_portfolio_history(period="1M", timeframe="1D")
+            if not nav_history or nav_history[-1]["date"] != today:
+                nav_history.append({"date": today, "nav": round(nav, 2)})
+        except Exception:
+            nav_history = [{"date": today, "nav": round(nav, 2)}]
+
+        # 損益計算
+        daily_pnl     = nav - last_equity
+        daily_pnl_pct = (daily_pnl / last_equity) if last_equity else 0.0
+
+        inception_nav  = float(acc_cfg.get("inception_nav") or last_equity or nav)
+        inception_date = acc_cfg.get("inception_date") or acc_cfg.get("created_at") or today
+        days_elapsed   = max(
+            (datetime.date.today() - datetime.date.fromisoformat(inception_date)).days, 1
+        )
+        total_return_pct  = (nav / inception_nav - 1) if inception_nav else 0.0
+        annual_return_pct = (
+            (nav / inception_nav) ** (365.0 / days_elapsed) - 1
+            if inception_nav and days_elapsed > 0 else 0.0
+        )
+        weekly_pnl_pct  = ReportModel._period_return(nav_history, nav, days=7)
+        monthly_pnl_pct = ReportModel._period_return(nav_history, nav, days=30)
+        max_drawdown_pct = ReportModel._calc_max_drawdown(nav_history)
+
+        # 持倉 & 今日交易
+        positions_raw = client.get_positions()
+        positions     = ReportModel._format_positions(positions_raw, nav)
+        orders        = client.get_orders(status="all", limit=30)
+        trades_today  = ReportModel._format_trades(orders, today)
+
+        return {
+            "report_date":  today,
+            "account_id":   account_id,
+            "strategy_id":  acc_cfg.get("active_strategy", ""),
+            "generated_at": datetime.datetime.now().isoformat(),
+            "live":         True,   # 標記為即時生成（非 GitHub Actions 報告）
+            "summary": {
+                "nav":               round(nav, 2),
+                "cash":              round(cash, 2),
+                "invested":          round(nav - cash, 2),
+                "inception_nav":     round(inception_nav, 2),
+                "inception_date":    inception_date,
+                "daily_pnl":         round(daily_pnl, 2),
+                "daily_pnl_pct":     round(daily_pnl_pct, 6),
+                "weekly_pnl_pct":    round(weekly_pnl_pct, 6),
+                "monthly_pnl_pct":   round(monthly_pnl_pct, 6),
+                "total_return_pct":  round(total_return_pct, 6),
+                "annual_return_pct": round(annual_return_pct, 6),
+                "max_drawdown_pct":  round(max_drawdown_pct, 6),
+                "days_elapsed":      days_elapsed,
+            },
+            "positions":    positions,
+            "trades_today": trades_today,
+            "nav_history":  nav_history,
+            "watchlist":    {},
+        }
 
     # ── 自動刷新設定 ─────────────────────────────────────────────────────────
     @staticmethod

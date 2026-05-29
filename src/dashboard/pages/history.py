@@ -23,6 +23,8 @@ def render_history(provider: DashboardDataProvider, account_id: str) -> None:
         st.info("尚無歷史報告。報告由 GitHub Actions 每日自動產生並提交。")
         return
 
+
+
     # ── 日期選擇器 ────────────────────────────────────────────────────────
     latest_date = datetime.date.fromisoformat(available_dates[0])
     selected_dt = st.date_input(
@@ -38,6 +40,10 @@ def render_history(provider: DashboardDataProvider, account_id: str) -> None:
     if report is None:
         st.warning(f"找不到 {selected_date} 的報告（可能該日為假日或報告尚未產生）。")
         return
+
+    # 即時生成的報告加上提示標籤
+    if report.get("live"):
+        st.info("📡 今日報告為即時快照（GitHub Actions 尚未產生正式報告）", icon="ℹ️")
 
     s = report["summary"]
     def _pct(v): return f"{v * 100:+.2f}%"
