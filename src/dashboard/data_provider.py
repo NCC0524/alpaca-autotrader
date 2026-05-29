@@ -40,30 +40,86 @@ class DashboardDataProvider:
     def get_account_summary(self, account_id: str) -> dict:
         """
         取得帳戶摘要：NAV、現金、損益等。
-        即時資料來自 Alpaca API；損益統計來自當日 JSON 報告（如有）。
+        優先使用當日 JSON 報告；報告不存在時，直接從 Alpaca API 計算。
+        - daily_pnl：Alpaca API 的 last_equity（前一交易日收盤）作為基準
+        - total / annual return：使用 account_registry 的 inception_nav
+        - weekly / monthly：使用最新可用報告的 nav_history
         """
+        from src.reports.report_model import ReportModel  # 避免循環引用
+
         client  = self.account_manager.get_client(account_id)
         account = client.get_account()
-        nav     = float(account.get("portfolio_value", 0))
-        cash    = float(account.get("cash", 0))
+        nav         = float(account.get("portfolio_value", 0))
+        cash        = float(account.get("cash", 0))
+        last_equity = float(account.get("last_equity") or nav)
 
         today  = datetime.date.today().isoformat()
         report = self.report_model.load(account_id, today)
-        s = report["summary"] if report else {}
+
+        # ── 情況 A：當日報告存在 → 直接使用 ──────────────────────────────
+        if report and report.get("summary"):
+            s = report["summary"]
+            return {
+                "account_id":        account_id,
+                "nav":               round(nav, 2),
+                "cash":              round(cash, 2),
+                "invested":          round(nav - cash, 2),
+                "daily_pnl":         float(s.get("daily_pnl", 0.0)),
+                "daily_pnl_pct":     float(s.get("daily_pnl_pct", 0.0)),
+                "weekly_pnl_pct":    float(s.get("weekly_pnl_pct", 0.0)),
+                "monthly_pnl_pct":   float(s.get("monthly_pnl_pct", 0.0)),
+                "total_return_pct":  float(s.get("total_return_pct", 0.0)),
+                "annual_return_pct": float(s.get("annual_return_pct", 0.0)),
+                "max_drawdown_pct":  float(s.get("max_drawdown_pct", 0.0)),
+                "days_elapsed":      int(s.get("days_elapsed", 0)),
+                "active_strategy":   self.account_manager.get_active_strategy(account_id),
+            }
+
+        # ── 情況 B：無當日報告 → 即時計算 ────────────────────────────────
+        # 今日損益：以 Alpaca last_equity（前一交易日收盤）為基準
+        daily_pnl     = nav - last_equity
+        daily_pnl_pct = (daily_pnl / last_equity) if last_equity else 0.0
+
+        # 起始資料：從 account_registry 讀取
+        acc_cfg       = self.account_manager.get_account_config(account_id)
+        inception_nav = float(acc_cfg.get("inception_nav") or last_equity or nav)
+        inception_date = acc_cfg.get("inception_date") or acc_cfg.get("created_at") or today
+
+        days_elapsed = max(
+            (datetime.date.today() - datetime.date.fromisoformat(inception_date)).days,
+            1,
+        )
+        total_return_pct  = (nav / inception_nav - 1) if inception_nav else 0.0
+        annual_return_pct = (
+            (nav / inception_nav) ** (365.0 / days_elapsed) - 1
+            if inception_nav and days_elapsed > 0 else 0.0
+        )
+
+        # 週 / 月 / 最大回撤：從最新可用歷史報告計算
+        nav_history: list = []
+        available_dates = self.report_model.list_dates(account_id)
+        if available_dates:
+            latest = self.report_model.load(account_id, available_dates[0])
+            if latest:
+                nav_history = latest.get("nav_history", [])
+
+        weekly_pnl_pct  = ReportModel._period_return(nav_history, nav, days=7)
+        monthly_pnl_pct = ReportModel._period_return(nav_history, nav, days=30)
+        max_drawdown_pct = ReportModel._calc_max_drawdown(nav_history) if nav_history else 0.0
 
         return {
             "account_id":        account_id,
             "nav":               round(nav, 2),
             "cash":              round(cash, 2),
             "invested":          round(nav - cash, 2),
-            "daily_pnl":         float(s.get("daily_pnl", 0.0)),
-            "daily_pnl_pct":     float(s.get("daily_pnl_pct", 0.0)),
-            "weekly_pnl_pct":    float(s.get("weekly_pnl_pct", 0.0)),
-            "monthly_pnl_pct":   float(s.get("monthly_pnl_pct", 0.0)),
-            "total_return_pct":  float(s.get("total_return_pct", 0.0)),
-            "annual_return_pct": float(s.get("annual_return_pct", 0.0)),
-            "max_drawdown_pct":  float(s.get("max_drawdown_pct", 0.0)),
-            "days_elapsed":      int(s.get("days_elapsed", 0)),
+            "daily_pnl":         round(daily_pnl, 2),
+            "daily_pnl_pct":     round(daily_pnl_pct, 6),
+            "weekly_pnl_pct":    round(weekly_pnl_pct, 6),
+            "monthly_pnl_pct":   round(monthly_pnl_pct, 6),
+            "total_return_pct":  round(total_return_pct, 6),
+            "annual_return_pct": round(annual_return_pct, 6),
+            "max_drawdown_pct":  round(max_drawdown_pct, 6),
+            "days_elapsed":      days_elapsed,
             "active_strategy":   self.account_manager.get_active_strategy(account_id),
         }
 
